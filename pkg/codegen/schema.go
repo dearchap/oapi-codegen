@@ -50,6 +50,31 @@ func (s Schema) TypeDecl() string {
 	return s.GoType
 }
 
+func (s Schema) CliType() string {
+	suffix := ""
+	name := ""
+	typeName := s.GoType
+	if s.ArrayType != nil {
+		suffix = "Slice"
+		typeName = s.ArrayType.GoType
+	}
+
+	switch typeName {
+	case "int32", "int64":
+		name = "Int"
+	case "uint32", "uint64":
+		name = "Uint"
+	case "float32", "float64":
+		name = "Float"
+	case "string":
+		name = "String"
+	default:
+		name = typeName
+	}
+
+	return name + suffix
+}
+
 // AddProperty adds a new property to the current Schema, and returns an error
 // if it collides. Two identical fields will not collide, but two properties by
 // the same name, but different definition, will collide. It's safe to merge the
@@ -92,13 +117,16 @@ func (p Property) GoFieldName() string {
 	return SchemaNameToTypeName(p.JsonFieldName)
 }
 
-func (p Property) GoTypeDef() string {
-	typeDef := p.Schema.TypeDecl()
-	if !p.Schema.SkipOptionalPointer &&
+func (p Property) NeedsPointer() bool {
+	return !p.Schema.SkipOptionalPointer &&
 		(!p.Required || p.Nullable ||
 			(p.ReadOnly && (!p.Required || !globalState.options.Compatibility.DisableRequiredReadOnlyAsPointer)) ||
-			p.WriteOnly) {
+			p.WriteOnly)
+}
 
+func (p Property) GoTypeDef() string {
+	typeDef := p.Schema.TypeDecl()
+	if p.NeedsPointer() {
 		typeDef = "*" + typeDef
 	}
 	return typeDef

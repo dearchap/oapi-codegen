@@ -471,6 +471,8 @@ func generationTargets(cfg *codegen.Configuration, targets []string) error {
 			opts.Strict = true
 		case "client":
 			opts.Client = true
+		case "urfave-cli":
+			opts.CLI = true
 		case "types", "models":
 			opts.Models = true
 		case "spec", "embedded-spec":

@@ -210,19 +210,20 @@ func DescribeSecurityDefinition(securityRequirements openapi3.SecurityRequiremen
 type OperationDefinition struct {
 	OperationId string // The operation_id description from Swagger, used to generate function names
 
-	PathParams          []ParameterDefinition // Parameters in the path, eg, /path/:param
-	HeaderParams        []ParameterDefinition // Parameters in HTTP headers
-	QueryParams         []ParameterDefinition // Parameters in the query, /path?param
-	CookieParams        []ParameterDefinition // Parameters in cookies
-	TypeDefinitions     []TypeDefinition      // These are all the types we need to define for this operation
-	SecurityDefinitions []SecurityDefinition  // These are the security providers
-	BodyRequired        bool
-	Bodies              []RequestBodyDefinition // The list of bodies for which to generate handlers.
-	Responses           []ResponseDefinition    // The list of responses that can be accepted by handlers.
-	Summary             string                  // Summary string from Swagger, used to generate a comment
-	Method              string                  // GET, POST, DELETE, etc.
-	Path                string                  // The Swagger path for the operation, like /resource/{id}
-	Spec                *openapi3.Operation
+	PathParams            []ParameterDefinition // Parameters in the path, eg, /path/:param
+	HeaderParams          []ParameterDefinition // Parameters in HTTP headers
+	QueryParams           []ParameterDefinition // Parameters in the query, /path?param
+	CookieParams          []ParameterDefinition // Parameters in cookies
+	TypeDefinitions       []TypeDefinition      // These are all the types we need to define for this operation
+	SchemaTypeDefinitions []TypeDefinition      // These are types that are scoped in the schema
+	SecurityDefinitions   []SecurityDefinition  // These are the security providers
+	BodyRequired          bool
+	Bodies                []RequestBodyDefinition // The list of bodies for which to generate handlers.
+	Responses             []ResponseDefinition    // The list of responses that can be accepted by handlers.
+	Summary               string                  // Summary string from Swagger, used to generate a comment
+	Method                string                  // GET, POST, DELETE, etc.
+	Path                  string                  // The Swagger path for the operation, like /resource/{id}
+	Spec                  *openapi3.Operation
 }
 
 // Params returns the list of all parameters except Path parameters. Path parameters
@@ -239,6 +240,16 @@ func (o *OperationDefinition) AllParams() []ParameterDefinition {
 	result = append(result, o.CookieParams...)
 	result = append(result, o.PathParams...)
 	return result
+}
+
+// GetTypeDefinition returns the given type def
+func (o *OperationDefinition) GetTypeDefinition(name string) TypeDefinition {
+	for _, t := range o.SchemaTypeDefinitions {
+		if t.TypeName == name {
+			return t
+		}
+	}
+	return TypeDefinition{}
 }
 
 // If we have parameters other than path parameters, they're bundled into an
@@ -1027,6 +1038,12 @@ func GenerateStrictResponses(t *template.Template, responses []ResponseDefinitio
 // as Echo path handlers.
 func GenerateClient(t *template.Template, ops []OperationDefinition) (string, error) {
 	return GenerateTemplates([]string{"client.tmpl"}, t, ops)
+}
+
+// GenerateClient uses the template engine to generate the function which registers our wrappers
+// as Echo path handlers.
+func GenerateCLIClient(t *template.Template, ops []OperationDefinition) (string, error) {
+	return GenerateTemplates([]string{"urfave/cli/cli.tmpl"}, t, ops)
 }
 
 // GenerateClientWithResponses generates a client which extends the basic client which does response

@@ -35,6 +35,7 @@ type GenerateOptions struct {
 	Client        bool `yaml:"client,omitempty"`         // Client specifies whether to generate client boilerplate
 	Models        bool `yaml:"models,omitempty"`         // Models specifies whether to generate type definitions
 	EmbeddedSpec  bool `yaml:"embedded-spec,omitempty"`  // Whether to embed the swagger spec in the generated code
+	CLI           bool `yaml:"urfave-cli,omitempty"`     // Whether to generate cli
 }
 
 // CompatibilityOptions specifies backward compatibility settings for the

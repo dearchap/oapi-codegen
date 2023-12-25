@@ -253,6 +253,23 @@ func Generate(spec *openapi3.T, opts Configuration) (string, error) {
 		}
 	}
 
+	var clientCLIOut string
+	if opts.Generate.CLI {
+		schemaTypes, err := GenerateTypesForSchemas(t, spec.Components.Schemas, opts.OutputOptions.ExcludeSchemas)
+		if err != nil {
+			return "", fmt.Errorf("error generating Go types for component schemas: %w", err)
+		}
+		aops := make([]OperationDefinition, len(ops))
+		for index, op := range ops {
+			op.SchemaTypeDefinitions = append(op.SchemaTypeDefinitions, schemaTypes...)
+			aops[index] = op
+		}
+		clientCLIOut, err = GenerateCLIClient(t, aops)
+		if err != nil {
+			return "", fmt.Errorf("error generating client: %w", err)
+		}
+	}
+
 	var clientWithResponsesOut string
 	if opts.Generate.Client {
 		clientWithResponsesOut, err = GenerateClientWithResponses(t, ops)
@@ -304,6 +321,13 @@ func Generate(spec *openapi3.T, opts Configuration) (string, error) {
 			return "", fmt.Errorf("error writing client: %w", err)
 		}
 		_, err = w.WriteString(clientWithResponsesOut)
+		if err != nil {
+			return "", fmt.Errorf("error writing client: %w", err)
+		}
+	}
+
+	if opts.Generate.CLI {
+		_, err = w.WriteString(clientCLIOut)
 		if err != nil {
 			return "", fmt.Errorf("error writing client: %w", err)
 		}

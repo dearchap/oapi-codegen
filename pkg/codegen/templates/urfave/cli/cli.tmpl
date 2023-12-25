@@ -1,0 +1,78 @@
+import "github.com/urfave/cli/v3"
+
+{{$clientTypeName := opts.OutputOptions.ClientTypeName -}}
+
+func RootCommand(client *ClientWithResponses) *cli.Command {
+    return &cli.Command{
+        Name: "{{ $clientTypeName }}",
+        Commands: []*cli.Command {                   
+                {{range . -}}
+                {{$op := . -}}
+                {{$hasParams := .RequiresParamObject -}}
+                {{$pathParams := .PathParams -}}
+                {{$opid := .OperationId -}}
+                {
+                    Name: "{{$opid}}",
+                    Description: "{{.Summary}}",
+                    Flags: []cli.Flag { 
+                      {{range .PathParams}}&cli.{{.Schema.CliType}}Flag {                      
+                               Name: "{{.ParamName}}",
+                               Required: {{.Required}},
+                               Usage: "{{.Spec.Description}}",                               
+                            },{{end}}{{if .RequiresParamObject}}
+                      {{range .Params}}&cli.{{.Schema.CliType}}Flag {
+                               Name: "{{.ParamName}}",
+                               Required: {{.Required}},
+                               Usage: "{{.Spec.Description}}",
+                            },                     
+                    {{end}}{{end}} {{range .Bodies}}
+                    {{with $op.GetTypeDefinition .Schema.TypeDecl}}
+                    {{range .Schema.Properties}}
+                          &cli.{{.Schema.CliType}}Flag {
+                               Name: "{{.JsonFieldName}}",
+                               Required: {{.Required}},
+                               Usage: "{{.Schema.Description}}",
+                            },                                         
+                    {{end}}{{end}}
+                    {{end}}                    
+                    },
+                    Action: func(ctx context.Context, cmd *cli.Command) error {
+                       {{range .PathParams}}{{.ParamName}} := {{.Schema.TypeDecl}}(cmd.{{.Schema.CliType}}("{{.ParamName}}"))
+                       {{end}}                                   
+                      {{if .RequiresParamObject}}
+                      {{range .Params}}{{.ParamName}} := {{.Schema.TypeDecl}}(cmd.{{.Schema.CliType}}("{{.ParamName}}"))
+                      {{end}}                                     
+                        req := &{{$opid}}Params{
+                        {{range .Params}}
+                        {{.GoName}} : &{{.ParamName}},
+                        {{end}} }
+                        resp, err := client.{{$opid}}WithResponse(ctx, req)
+                      {{else}}{{if .Bodies}}{{range .Bodies}}
+                    {{with $op.GetTypeDefinition .Schema.TypeDecl}}
+                    {{range .Schema.Properties}}
+                      _{{.GoFieldName}} := {{.Schema.TypeDecl}}(cmd.{{.Schema.CliType}}("{{.JsonFieldName}}"))
+                    {{end}}                    
+                    body:= {{.TypeName}}{
+                    {{range .Schema.Properties}}
+                      {{.GoFieldName}} : {{if .NeedsPointer}}&{{end}}_{{.GoFieldName}},
+                    {{end}}                    
+                    }
+                    {{end}}
+                    resp, err := client.{{$opid}}WithResponse(ctx, body)
+                    {{end}}
+                    {{else}}       
+                    resp, err := client.{{$opid}}WithResponse(ctx{{range .AllParams}},{{.ParamName}}{{end}}){{end}}                    
+                    {{end}}
+                        
+                        if err != nil {
+                           return err
+                        }
+
+                        log.Printf("%s(%d)%v",resp.Status(), resp.StatusCode(), string(resp.Body))
+                        return nil
+                    },
+                },
+                {{end}}
+        },
+    }
+}
